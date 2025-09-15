@@ -1,0 +1,65 @@
+MONTE CARLO SIMULATION - CONSTRUCTION PRICING ANALYSIS
+============================================================
+Generated on: 2025-09-15 09:21:45
+
+EXECUTIVE SUMMARY
+--------------------
+This Monte Carlo simulation analyzed construction pricing data to assess
+risk and uncertainty in project cost estimates. The analysis included
+multiple scenarios with varying material and labor cost assumptions.
+
+KEY FINDINGS
+---------------
+• Baseline Total Estimate: $56,921.33 (mean)
+• Standard Deviation: $17,672.22
+• 95% Confidence Interval: $45,244.95 - $68,789.16
+• Value at Risk (95%): $27,539.76
+• Probability of Loss: 49.5%
+
+SCENARIO ANALYSIS
+--------------------
+
+Material Increase 10Pct:
+  • Mean Estimate: $56,861.20
+  • Change from Baseline: -0.1%
+  • Standard Deviation: $17,363.92
+
+Material Increase 20Pct:
+  • Mean Estimate: $56,871.77
+  • Change from Baseline: -0.1%
+  • Standard Deviation: $17,409.10
+
+Labor Increase 15Pct:
+  • Mean Estimate: $56,720.29
+  • Change from Baseline: -0.4%
+  • Standard Deviation: $17,582.76
+
+Labor Increase 25Pct:
+  • Mean Estimate: $57,084.93
+  • Change from Baseline: +0.3%
+  • Standard Deviation: $17,564.64
+
+Combined Moderate:
+  • Mean Estimate: $56,945.65
+  • Change from Baseline: +0.0%
+  • Standard Deviation: $17,438.24
+
+Combined Aggressive:
+  • Mean Estimate: $56,594.86
+  • Change from Baseline: -0.6%
+  • Standard Deviation: $17,378.97
+
+Cost Reduction:
+  • Mean Estimate: $56,799.38
+  • Change from Baseline: -0.2%
+  • Standard Deviation: $17,579.06
+
+RECOMMENDATIONS
+----------------
+1. Risk Management: Consider hedging strategies for material cost volatility
+2. Contingency Planning: Maintain 15-20% contingency for cost overruns
+3. Scenario Planning: Regularly update cost assumptions based on market conditions
+4. Monitoring: Track actual costs against simulated ranges for model validation
+
+============================================================
+End of Report
