@@ -1,6 +1,6 @@
 # 🎯 Monte Carlo Simulation for Construction Pricing Analysis
 
-Sebuah implementasi komprehensif simulasi Monte Carlo untuk analisis pricing konstruksi menggunakan Python. Proyek ini menyediakan tools lengkap untuk analisis risiko, visualisasi, dan dashboard interaktif.
+Sebuah implementasi komprehensif simulasi Monte Carlo untuk analisis pricing konstruksi menggunakan Python. Proyek ini menyediakan tools lengkap untuk analisis risiko, visualisasi, dan dashboard interaktif dengan dukungan AI-powered insights menggunakan Google Gemini AI.
 
 ## 📊 Fitur Utama
 
@@ -28,11 +28,32 @@ Sebuah implementasi komprehensif simulasi Monte Carlo untuk analisis pricing kon
 - **Drill-down Capabilities**: Kemampuan untuk melihat detail data
 - **Export Options**: Export hasil ke berbagai format
 
+### 🤖 AI-Powered Features
+- **Intelligent Reports**: Laporan analisis otomatis menggunakan Gemini AI
+- **Smart Insights**: Interpretasi hasil simulasi dengan AI
+- **Risk Recommendations**: Rekomendasi mitigasi risiko berbasis AI
+- **Automated Analysis**: Analisis mendalam otomatis dari hasil simulasi
+
 ## 🚀 Quick Start
 
 ### Prerequisites
+
+1. **Install Dependencies**
 ```bash
-pip install pandas numpy matplotlib seaborn scipy plotly
+pip install pandas numpy matplotlib seaborn scipy plotly google-generativeai python-dotenv
+```
+
+2. **Setup API Keys**
+   - Copy `.env.example` to `.env`
+   - Get your Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Add your API key to the `.env` file:
+   ```
+   GEMINI_API_KEY=your_actual_api_key_here
+   ```
+
+### Quick Start - AI-Powered Analysis
+```bash
+python ai_report_generator.py
 ```
 
 ### Basic Usage
@@ -75,12 +96,16 @@ montecarlo/
 ├── monte_carlo_simulation.py   # Core Monte Carlo simulation
 ├── visualization_suite.py      # Static visualizations
 ├── interactive_dashboard.py    # Interactive dashboards
+├── ai_report_generator.py      # AI-powered report generation
 ├── main_monte_carlo.py        # Script utama
 ├── README.md                  # Dokumentasi ini
-└── monte_carlo_output/        # Output folder
-    ├── static_plots/          # Static visualization files
-    ├── interactive_dashboards/ # HTML dashboard files
-    └── summary_report.txt     # Text summary report
+├── .env.example               # Template environment variables
+├── .env                       # Your API keys (DO NOT COMMIT)
+├── monte_carlo_output/        # Output folder
+│   ├── static_plots/          # Static visualization files
+│   ├── interactive_dashboards/ # HTML dashboard files
+│   └── summary_report.txt     # Text summary report
+└── ai_report_output/          # AI-powered HTML reports
 ```
 
 ## 📊 Dataset Requirements
@@ -116,6 +141,10 @@ Proyek ini menganalisis beberapa skenario:
 - `01_distribution_dashboard.html`: Dashboard distribusi interaktif
 - `02_risk_dashboard.html`: Dashboard analisis risiko
 - `03_sensitivity_dashboard.html`: Dashboard analisis sensitivitas
+
+### AI-Powered Reports
+- `ai_monte_carlo_report.html`: Laporan komprehensif dengan AI insights
+- `ai_analysis_summary.txt`: Ringkasan analisis AI dalam format teks
 
 ### Reports
 - `summary_report.txt`: Laporan ringkasan dalam format teks
@@ -198,6 +227,15 @@ visualizer = MonteCarloVisualizer(results, figsize=(20, 12))
    matplotlib.use('Agg')  # For headless environments
    ```
 
+## 🔐 Security Notes
+
+⚠️ **Important**: Never commit your `.env` file or expose your API keys!
+
+- The `.env` file is already added to `.gitignore`
+- Use `.env.example` as a template for other users
+- Keep your API keys secure and rotate them regularly
+- Never share your API keys in code, documentation, or version control
+
 ## 📚 Dependencies
 
 - **pandas**: Data manipulation dan analysis
@@ -206,6 +244,8 @@ visualizer = MonteCarloVisualizer(results, figsize=(20, 12))
 - **seaborn**: Statistical visualization
 - **scipy**: Scientific computing dan statistical distributions
 - **plotly**: Interactive visualizations
+- **google-generativeai**: Google Gemini AI integration
+- **python-dotenv**: Environment variables management
 - **warnings**: Suppress warnings untuk output yang bersih
 
 ## 🎯 Use Cases
@@ -228,12 +268,14 @@ visualizer = MonteCarloVisualizer(results, figsize=(20, 12))
 
 ## 🔮 Future Enhancements
 
+- [ ] **Advanced AI Models**: Integration dengan model AI lainnya (Claude, GPT-4)
 - [ ] **Machine Learning Integration**: Prediksi cost menggunakan ML models
 - [ ] **Real-time Data Integration**: Koneksi ke real-time market data
 - [ ] **Web Application**: Deploy sebagai web app dengan Flask/Django
 - [ ] **Database Integration**: Koneksi ke database untuk data storage
 - [ ] **API Development**: REST API untuk integration dengan sistem lain
 - [ ] **Advanced Risk Models**: Implementasi model risiko yang lebih sophisticated
+- [ ] **Multi-language AI Reports**: Laporan AI dalam berbagai bahasa
 
 ## 📄 License
 
@@ -242,6 +284,12 @@ MIT License - Feel free to use and modify for your projects.
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+**When contributing:**
+1. Never commit API keys or sensitive data
+2. Update `.env.example` if you add new environment variables
+3. Test that the project works with environment variables from `.env.example`
+4. Follow security best practices for API key management
 
 ## 📞 Support
 

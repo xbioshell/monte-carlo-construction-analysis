@@ -4,14 +4,26 @@ import base64
 import os
 from datetime import datetime
 import json
+import google.generativeai as genai
 from data_loader import DataLoader
 from monte_carlo_simulation import PricingMonteCarloSimulation
 from visualization_suite import MonteCarloVisualizer
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Configure Gemini AI
+api_key = os.getenv('GEMINI_API_KEY')
+if not api_key:
+    raise ValueError("GEMINI_API_KEY not found in environment variables. Please check your .env file.")
+genai.configure(api_key=api_key)
 
 class AIReportGenerator:
     """
     AI-Powered HTML Report Generator untuk Monte Carlo Analysis
     Menghasilkan laporan yang eye-catching dan mudah dipahami untuk orang awam
+    Menggunakan Google Gemini AI untuk generate insights yang dinamis
     """
     
     def __init__(self, simulation_results, data_loader, output_dir="./ai_report_output"):
@@ -20,8 +32,29 @@ class AIReportGenerator:
         self.output_dir = output_dir
         self.report_data = {}
         
+        # Initialize Gemini AI model
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
+    
+    def _call_gemini_ai(self, prompt):
+        """Helper function to call Gemini AI with error handling"""
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            print(f"⚠️ Gemini AI error: {e}")
+            return "AI tidak dapat menghasilkan insight saat ini. Menggunakan analisis statistik standar."
+    
+    def _parse_ai_response_to_summary(self, ai_response, mean_estimate, std_estimate):
+        """Parse AI response when JSON parsing fails"""
+        return {
+            'greeting': "🤖 Halo! Saya AI assistant Anda yang menganalisis hasil Monte Carlo.",
+            'main_finding': f"Berdasarkan analisis AI: {ai_response[:200]}...",
+            'simple_explanation': f"Estimasi rata-rata: Rp {mean_estimate:,.0f} dengan variasi Rp {std_estimate:,.0f}",
+            'confidence_level': "Analisis ini dihasilkan menggunakan Google Gemini AI."
+        }
         
     def _generate_ai_insights(self):
         """Generate AI-powered insights dan explanations"""
@@ -35,17 +68,52 @@ class AIReportGenerator:
         return insights
     
     def _create_executive_summary(self):
-        """Create executive summary dengan bahasa conversational"""
+        """Create executive summary menggunakan Gemini AI"""
         baseline = self.results['baseline']['samples']
         mean_estimate = baseline['Total_Estimate'].mean()
         std_estimate = baseline['Total_Estimate'].std()
+        min_estimate = baseline['Total_Estimate'].min()
+        max_estimate = baseline['Total_Estimate'].max()
         
-        return {
-            'greeting': "🤖 Halo! Saya AI assistant Anda yang akan membantu menjelaskan hasil analisis Monte Carlo untuk proyek konstruksi Anda.",
-            'main_finding': f"Berdasarkan simulasi 10,000 skenario, estimasi biaya rata-rata proyek Anda adalah **Rp {mean_estimate:,.0f}** dengan variasi sekitar **Rp {std_estimate:,.0f}**.",
-            'simple_explanation': "Bayangkan Anda menjalankan proyek serupa 10,000 kali dengan kondisi yang berbeda-beda. Inilah gambaran biaya yang paling mungkin terjadi.",
-            'confidence_level': "Saya cukup yakin dengan prediksi ini karena didasarkan pada analisis data historis 1,000 proyek konstruksi."
-        }
+        # Prepare data for AI analysis
+        prompt = f"""
+Anda adalah AI assistant yang ahli dalam analisis Monte Carlo untuk proyek konstruksi. 
+Berdasarkan data simulasi berikut, buatlah executive summary yang conversational dan mudah dipahami:
+
+Data Simulasi Monte Carlo (10,000 iterasi):
+- Estimasi biaya rata-rata: Rp {mean_estimate:,.0f}
+- Standar deviasi: Rp {std_estimate:,.0f}
+- Estimasi minimum: Rp {min_estimate:,.0f}
+- Estimasi maksimum: Rp {max_estimate:,.0f}
+- Coefficient of Variation: {(std_estimate/mean_estimate)*100:.1f}%
+
+Buatlah 4 komponen berikut dalam format JSON:
+1. greeting: Sapaan ramah sebagai AI assistant
+2. main_finding: Temuan utama dengan angka-angka penting
+3. simple_explanation: Penjelasan sederhana dengan analogi yang mudah dipahami
+4. confidence_level: Tingkat kepercayaan terhadap prediksi
+
+Gunakan bahasa Indonesia yang conversational dan profesional. Fokus pada insight praktis untuk decision making.
+"""
+        
+        try:
+            ai_response = self._call_gemini_ai(prompt)
+            # Try to parse JSON response
+            import re
+            json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+            else:
+                # Fallback: parse manually or use default
+                return self._parse_ai_response_to_summary(ai_response, mean_estimate, std_estimate)
+        except:
+            # Fallback to original method if AI fails
+            return {
+                'greeting': "🤖 Halo! Saya AI assistant Anda yang akan membantu menjelaskan hasil analisis Monte Carlo untuk proyek konstruksi Anda.",
+                'main_finding': f"Berdasarkan simulasi 10,000 skenario, estimasi biaya rata-rata proyek Anda adalah **Rp {mean_estimate:,.0f}** dengan variasi sekitar **Rp {std_estimate:,.0f}**.",
+                'simple_explanation': "Bayangkan Anda menjalankan proyek serupa 10,000 kali dengan kondisi yang berbeda-beda. Inilah gambaran biaya yang paling mungkin terjadi.",
+                'confidence_level': "Saya cukup yakin dengan prediksi ini karena didasarkan pada analisis data historis 1,000 proyek konstruksi."
+            }
     
     def _create_data_story(self):
         """Explain data dengan storytelling approach"""
@@ -63,11 +131,43 @@ class AIReportGenerator:
         return data_info
     
     def _create_risk_explanation(self):
-        """Explain risk metrics dengan bahasa sederhana"""
+        """Explain risk metrics menggunakan Gemini AI"""
         baseline = self.results['baseline']['samples']
         var_95 = np.percentile(baseline['Total_Estimate'], 95)
         var_99 = np.percentile(baseline['Total_Estimate'], 99)
+        mean_estimate = baseline['Total_Estimate'].mean()
+        cv = baseline['Total_Estimate'].std() / mean_estimate
         
+        prompt = f"""
+Anda adalah AI expert dalam risk management untuk proyek konstruksi.
+Berdasarkan hasil Monte Carlo simulation, jelaskan risiko dengan bahasa yang mudah dipahami:
+
+Data Risiko:
+- Value at Risk 95%: Rp {var_95:,.0f}
+- Value at Risk 99%: Rp {var_99:,.0f}
+- Estimasi rata-rata: Rp {mean_estimate:,.0f}
+- Coefficient of Variation: {cv*100:.1f}%
+
+Buatlah penjelasan risiko yang mencakup:
+1. intro: Pengantar tentang pentingnya memahami risiko
+2. var_explanation: Penjelasan VaR dengan analogi sederhana
+3. risk_level: Tingkat risiko (rendah/sedang/tinggi) berdasarkan CV
+4. what_to_do: Rekomendasi praktis untuk mitigasi risiko
+
+Gunakan bahasa Indonesia yang conversational, emoji, dan analogi yang mudah dipahami.
+Format dalam JSON dengan 4 key di atas.
+"""
+        
+        try:
+            ai_response = self._call_gemini_ai(prompt)
+            import re
+            json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+        except:
+            pass
+            
+        # Fallback to original method
         return {
             'intro': "⚠️ Mari kita bicara tentang risiko dengan bahasa yang mudah dipahami...",
             'var_explanation': {
@@ -132,14 +232,58 @@ class AIReportGenerator:
             return "🚨 Dampak besar - perlu strategi mitigasi risiko"
     
     def _create_recommendations(self):
-        """Create actionable recommendations"""
+        """Create actionable recommendations menggunakan Gemini AI"""
         baseline = self.results['baseline']['samples']
         risk_level = self._assess_risk_level(baseline)
+        mean_estimate = baseline['Total_Estimate'].mean()
+        std_estimate = baseline['Total_Estimate'].std()
+        cv = std_estimate / mean_estimate
         
+        # Analisis skenario untuk konteks
+        scenario_impacts = []
+        for scenario_name, scenario_data in self.results.items():
+            if scenario_name != 'baseline':
+                scenario_mean = scenario_data['samples']['Total_Estimate'].mean()
+                impact = ((scenario_mean - mean_estimate) / mean_estimate) * 100
+                scenario_impacts.append(f"{scenario_name}: {impact:.1f}%")
+        
+        prompt = f"""
+Anda adalah AI consultant untuk manajemen proyek konstruksi.
+Berdasarkan hasil Monte Carlo simulation, buatlah rekomendasi actionable:
+
+Data Analisis:
+- Estimasi rata-rata: Rp {mean_estimate:,.0f}
+- Standard deviasi: Rp {std_estimate:,.0f}
+- Coefficient of Variation: {cv*100:.1f}%
+- Tingkat risiko: {risk_level['level']} ({risk_level['description']})
+- Dampak skenario: {', '.join(scenario_impacts)}
+
+Buatlah rekomendasi yang mencakup:
+1. intro: Pengantar singkat
+2. actions: Array 3-4 rekomendasi dengan struktur:
+   - title: Judul dengan emoji
+   - action: Tindakan spesifik yang harus dilakukan
+   - reason: Alasan berdasarkan data
+3. closing: Penutup motivational
+
+Gunakan bahasa Indonesia yang praktis dan actionable.
+Format dalam JSON dengan struktur di atas.
+"""
+        
+        try:
+            ai_response = self._call_gemini_ai(prompt)
+            import re
+            json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+        except:
+            pass
+            
+        # Fallback to original method
         recommendations = [
             {
                 'title': '💰 Budget Planning',
-                'action': f"Siapkan budget dasar Rp {baseline['Total_Estimate'].mean():,.0f} + contingency 15%",
+                'action': f"Siapkan budget dasar Rp {mean_estimate:,.0f} + contingency 15%",
                 'reason': 'Berdasarkan analisis risiko dan variabilitas historis'
             },
             {
@@ -169,7 +313,7 @@ class AIReportGenerator:
             return None
     
     def _get_html_template(self):
-        """Generate modern HTML template dengan eye-catching design"""
+        """Generate simple HTML template for testing"""
         return """
 <!DOCTYPE html>
 <html lang="id">
@@ -178,451 +322,82 @@ class AIReportGenerator:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎯 AI-Powered Monte Carlo Analysis Report</title>
     <style>
-        /* Modern CSS dengan eye-catching design */
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-        
-        :root {{
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --accent-color: #ff6b6b;
-            --success-color: #51cf66;
-            --warning-color: #ffd43b;
-            --danger-color: #ff8787;
-            --text-dark: #2c3e50;
-            --text-light: #7f8c8d;
-            --bg-light: #f8f9fa;
-            --shadow: 0 10px 30px rgba(0,0,0,0.1);
-            --shadow-hover: 0 20px 40px rgba(0,0,0,0.15);
-        }}
-        
-        body {{
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: var(--text-dark);
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-        }}
-        
-        /* Hero Section */
-        .hero {{
-            background: var(--primary-gradient);
-            color: white;
-            padding: 4rem 2rem;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }}
-        
-        .hero::before {{
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="%23ffffff" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-            animation: float 20s ease-in-out infinite;
-        }}
-        
-        @keyframes float {{
-            0%, 100% {{ transform: translateY(0px); }}
-            50% {{ transform: translateY(-20px); }}
-        }}
-        
-        .hero h1 {{
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            animation: slideInDown 1s ease-out;
-        }}
-        
-        .hero p {{
-            font-size: 1.2rem;
-            opacity: 0.9;
-            animation: slideInUp 1s ease-out 0.3s both;
-        }}
-        
-        @keyframes slideInDown {{
-            from {{ transform: translateY(-50px); opacity: 0; }}
-            to {{ transform: translateY(0); opacity: 1; }}
-        }}
-        
-        @keyframes slideInUp {{
-            from {{ transform: translateY(50px); opacity: 0; }}
-            to {{ transform: translateY(0); opacity: 1; }}
-        }}
-        
-        /* Container */
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }}
-        
-        /* Cards */
-        .card {{
-            background: white;
-            border-radius: 20px;
-            padding: 2rem;
-            margin: 2rem 0;
-            box-shadow: var(--shadow);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }}
-        
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: var(--primary-gradient);
-        }
-        
-        .card:hover {
-            transform: translateY(-10px);
-            box-shadow: var(--shadow-hover);
-        }
-        
-        /* AI Assistant Styling */
-        .ai-section {
-            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-            border-left: 4px solid var(--accent-color);
-            position: relative;
-        }
-        
-        .ai-avatar {
-            width: 60px;
-            height: 60px;
-            background: var(--primary-gradient);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            animation: bounce 2s infinite;
-        }
-        
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
-        }
-        
-        /* Metrics Cards */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin: 2rem 0;
-        }
-        
-        .metric-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: var(--shadow);
-            transition: all 0.3s ease;
-            border-top: 4px solid var(--accent-color);
-        }
-        
-        .metric-card:hover {
-            transform: scale(1.05);
-        }
-        
-        .metric-value {
-            font-size: 2rem;
-            font-weight: bold;
-            color: var(--accent-color);
-            margin: 0.5rem 0;
-        }
-        
-        .metric-label {
-            color: var(--text-light);
-            font-size: 0.9rem;
-        }
-        
-        /* Risk Level Styling */
-        .risk-indicator {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.5rem 1rem;
-            border-radius: 25px;
-            font-weight: bold;
-            margin: 1rem 0;
-        }
-        
-        .risk-low { background: var(--success-color); color: white; }
-        .risk-medium { background: var(--warning-color); color: var(--text-dark); }
-        .risk-high { background: var(--danger-color); color: white; }
-        
-        /* Charts */
-        .chart-container {
-            text-align: center;
-            margin: 2rem 0;
-            padding: 1rem;
-            background: var(--bg-light);
-            border-radius: 15px;
-        }
-        
-        .chart-container img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 10px;
-            box-shadow: var(--shadow);
-        }
-        
-        /* Recommendations */
-        .recommendation {
-            background: linear-gradient(135deg, #51cf6620 0%, #51cf6610 100%);
-            border-left: 4px solid var(--success-color);
-            padding: 1.5rem;
-            margin: 1rem 0;
-            border-radius: 10px;
-        }
-        
-        .recommendation h4 {
-            color: var(--success-color);
-            margin-bottom: 0.5rem;
-        }
-        
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 2rem; }
-            .container { padding: 1rem; }
-            .metrics-grid { grid-template-columns: 1fr; }
-        }
-        
-        /* Floating Navigation */
-        .floating-nav {
-            position: fixed;
-            top: 50%;
-            right: 2rem;
-            transform: translateY(-50%);
-            background: white;
-            border-radius: 25px;
-            padding: 1rem;
-            box-shadow: var(--shadow);
-            z-index: 1000;
-        }
-        
-        .nav-item {
-            display: block;
-            padding: 0.5rem;
-            margin: 0.5rem 0;
-            text-decoration: none;
-            color: var(--text-dark);
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
-        
-        .nav-item:hover {
-            background: var(--primary-gradient);
-            color: white;
-        }
-        
-        /* Animations */
-        .fade-in {
-            animation: fadeIn 1s ease-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        /* Print Styles */
-        @media print {
-            .floating-nav { display: none; }
-            .card { break-inside: avoid; }
-        }
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        .card {{ background: #f9f9f9; padding: 20px; margin: 20px 0; border-radius: 10px; }}
+        .hero {{ background: #667eea; color: white; padding: 30px; text-align: center; }}
+        .container {{ max-width: 1200px; margin: 0 auto; }}
+        .metrics-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 20px 0; }}
+        .metric-card {{ background: white; padding: 15px; border-radius: 8px; text-align: center; }}
+        .chart-container {{ text-align: center; margin: 20px 0; }}
+        .chart-container img {{ max-width: 100%; height: auto; }}
     </style>
 </head>
 <body>
-    <!-- Floating Navigation -->
-    <nav class="floating-nav">
-        <a href="#executive" class="nav-item">📊 Summary</a>
-        <a href="#data" class="nav-item">📈 Data</a>
-        <a href="#risk" class="nav-item">⚠️ Risk</a>
-        <a href="#scenarios" class="nav-item">🔍 Scenarios</a>
-        <a href="#recommendations" class="nav-item">💡 Actions</a>
-    </nav>
-    
-    <!-- Hero Section -->
-    <header class="hero">
-        <h1>🎯 AI-Powered Monte Carlo Analysis</h1>
-        <p>Laporan Analisis Risiko Proyek Konstruksi yang Mudah Dipahami</p>
-        <p><small>Generated on {timestamp}</small></p>
-    </header>
+    <div class="hero">
+        <h1>🎯 AI-Powered Monte Carlo Analysis Report</h1>
+        <p>Generated on {timestamp}</p>
+    </div>
     
     <div class="container">
-        <!-- Executive Summary -->
-        <section id="executive" class="card ai-section fade-in">
-            <div class="ai-avatar">🤖</div>
+        <div class="card">
             <h2>📊 Executive Summary</h2>
-            <p style="font-size: 1.1rem; margin: 1rem 0;">{executive_greeting}</p>
-            <p style="font-size: 1.2rem; font-weight: bold; margin: 1rem 0;">{executive_main_finding}</p>
-            <p style="font-style: italic; color: var(--text-light);">{executive_simple_explanation}</p>
-            <p style="margin-top: 1rem;">{executive_confidence}</p>
+            <p>{executive_greeting}</p>
+            <p><strong>{executive_main_finding}</strong></p>
+            <p><em>{executive_simple_explanation}</em></p>
+            <p>{executive_confidence}</p>
             
             <div class="metrics-grid">
                 <div class="metric-card">
-                    <div class="metric-value">{mean_estimate}</div>
-                    <div class="metric-label">Estimasi Rata-rata</div>
+                    <div><strong>{mean_estimate}</strong></div>
+                    <div>Estimasi Rata-rata</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-value">{std_estimate}</div>
-                    <div class="metric-label">Variasi (±)</div>
+                    <div><strong>{std_estimate}</strong></div>
+                    <div>Variasi (±)</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-value">{risk_level_emoji}</div>
-                    <div class="metric-label">Tingkat Risiko</div>
+                    <div><strong>{risk_level_emoji}</strong></div>
+                    <div>Tingkat Risiko</div>
                 </div>
             </div>
-        </section>
+        </div>
         
-        <!-- Data Story -->
-        <section id="data" class="card fade-in">
-            <h2>📈 Cerita Data Kita</h2>
-            <div class="ai-section" style="margin: 1rem 0; padding: 1.5rem;">
-                <div class="ai-avatar">📊</div>
-                <p style="font-size: 1.1rem; margin-bottom: 1rem;">{data_story}</p>
-                <ul style="list-style: none; padding: 0;">
-                    {data_explanation_list}
-                </ul>
-            </div>
-            
+        <div class="card">
+            <h2>📈 Cerita Data</h2>
+            <p>{data_story}</p>
+            <ul>{data_explanation_list}</ul>
             <div class="chart-container">
-                <h3>Distribusi Data Historis</h3>
                 <img src="data:image/png;base64,{distribution_chart}" alt="Distribution Analysis">
-                <p style="margin-top: 1rem; font-style: italic;">Grafik ini menunjukkan pola distribusi biaya dari 1,000 proyek historis</p>
             </div>
-        </section>
+        </div>
         
-        <!-- Risk Analysis -->
-        <section id="risk" class="card ai-section fade-in">
-            <div class="ai-avatar">⚠️</div>
+        <div class="card">
             <h2>⚠️ Analisis Risiko</h2>
-            <p style="font-size: 1.1rem; margin: 1rem 0;">{risk_intro}</p>
-            
-            <div class="risk-indicator risk-{risk_level_class}">
-                {risk_level_emoji} Tingkat Risiko: {risk_level_text}
-            </div>
-            
-            <div style="background: var(--bg-light); padding: 1.5rem; border-radius: 10px; margin: 1rem 0;">
-                <h4>🎯 Penjelasan VaR (Value at Risk)</h4>
-                <p>{var_explanation}</p>
-                <p style="font-style: italic; color: var(--text-light); margin-top: 0.5rem;">{var_analogy}</p>
-            </div>
-            
+            <p>{risk_intro}</p>
+            <p>{var_explanation}</p>
+            <p>{var_analogy}</p>
+            <p>{what_to_do}</p>
             <div class="chart-container">
-                <h3>Visualisasi Risiko</h3>
                 <img src="data:image/png;base64,{risk_chart}" alt="Risk Analysis">
             </div>
-            
-            <div style="background: linear-gradient(135deg, #ffd43b20 0%, #ffd43b10 100%); padding: 1.5rem; border-radius: 10px; margin: 1rem 0;">
-                <p style="font-weight: bold;">💡 {what_to_do}</p>
-            </div>
-        </section>
+        </div>
         
-        <!-- Scenario Analysis -->
-        <section id="scenarios" class="card fade-in">
-            <h2>🔍 Analisis Skenario</h2>
-            <div class="ai-section" style="margin: 1rem 0; padding: 1.5rem;">
-                <div class="ai-avatar">🔮</div>
-                <p style="font-size: 1.1rem;">{scenario_intro}</p>
-            </div>
-            
+        <div class="card">
+            <h2>🔍 Skenario Analysis</h2>
+            <p>{scenario_intro}</p>
             {scenario_cards}
-            
             <div class="chart-container">
-                <h3>Perbandingan Skenario</h3>
-                <img src="data:image/png;base64,{scenario_chart}" alt="Scenario Comparison">
+                <img src="data:image/png;base64,{scenario_chart}" alt="Scenario Analysis">
             </div>
-        </section>
+        </div>
         
-        <!-- Recommendations -->
-        <section id="recommendations" class="card ai-section fade-in">
-            <div class="ai-avatar">💡</div>
-            <h2>💡 Rekomendasi AI</h2>
-            <p style="font-size: 1.1rem; margin: 1rem 0;">{recommendations_intro}</p>
-            
+        <div class="card">
+            <h2>💡 Rekomendasi</h2>
+            <p>{recommendations_intro}</p>
             {recommendation_cards}
-            
-            <div style="text-align: center; margin: 2rem 0; padding: 1.5rem; background: linear-gradient(135deg, #51cf6620 0%, #51cf6610 100%); border-radius: 15px;">
-                <h3 style="color: var(--success-color);">🚀 {recommendations_closing}</h3>
-            </div>
-        </section>
-        
-        <!-- Footer -->
-        <footer style="text-align: center; padding: 2rem; color: var(--text-light);">
-            <p>📊 Generated by AI-Powered Monte Carlo Analysis System</p>
-            <p><small>Report created on {timestamp}</small></p>
-        </footer>
+            <p>{recommendations_closing}</p>
+        </div>
     </div>
-    
-    <script>
-        // Smooth scrolling untuk navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function(e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                target.scrollIntoView({ behavior: 'smooth' });
-            });
-        });
-        
-        // Animate numbers on scroll
-        function animateNumbers() {
-            const numbers = document.querySelectorAll('.metric-value');
-            numbers.forEach(num => {
-                const finalValue = num.textContent;
-                num.textContent = '0';
-                
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            animateValue(num, 0, parseFloat(finalValue.replace(/[^\d.-]/g, '')), 2000);
-                            observer.unobserve(entry.target);
-                        }
-                    });
-                });
-                
-                observer.observe(num);
-            });
-        }
-        
-        function animateValue(element, start, end, duration) {
-            const startTime = performance.now();
-            const originalText = element.textContent;
-            
-            function update(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const current = start + (end - start) * progress;
-                
-                if (originalText.includes('Rp')) {
-                    element.textContent = `Rp ${Math.floor(current).toLocaleString()}`;
-                } else {
-                    element.textContent = Math.floor(current).toLocaleString();
-                }
-                
-                if (progress < 1) {
-                    requestAnimationFrame(update);
-                }
-            }
-            
-            requestAnimationFrame(update);
-        }
-        
-        // Initialize animations
-        document.addEventListener('DOMContentLoaded', animateNumbers);
-    </script>
 </body>
 </html>
         """
@@ -697,8 +472,8 @@ class AIReportGenerator:
             data_explanation_list=data_explanation_html,
             distribution_chart=charts_b64['distribution'],
             risk_intro=insights['risk_explanation']['intro'],
-            var_explanation=insights['risk_explanation']['var_explanation']['simple'],
-            var_analogy=insights['risk_explanation']['var_explanation']['analogy'],
+            var_explanation=insights['risk_explanation']['var_explanation']['simple'] if isinstance(insights['risk_explanation']['var_explanation'], dict) else insights['risk_explanation']['var_explanation'],
+            var_analogy=insights['risk_explanation']['var_explanation']['analogy'] if isinstance(insights['risk_explanation']['var_explanation'], dict) else "Seperti ramalan cuaca: 95% kemungkinan tidak hujan, tapi tetap bawa payung untuk 5% sisanya! ☂️",
             what_to_do=insights['risk_explanation']['what_to_do'],
             risk_chart=charts_b64['risk'],
             scenario_intro=insights['scenario_insights']['intro'],
